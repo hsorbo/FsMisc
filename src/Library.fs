@@ -1,7 +1,7 @@
 namespace FsMisc
+open System
 
 module GimmeProxy =
-    open System
     open Newtonsoft.Json
     open System.Net
     open System.Net.Http
@@ -81,3 +81,88 @@ module GimmeProxy =
         let! resp = http.GetStringAsync(uri) |> Async.AwaitTask
         return JsonConvert.DeserializeObject<Response>(resp)
     }
+
+//https://www.gnu.org/software/inetutils/manual/html_node/The-_002enetrc-file.html
+module NetRc =
+    type Identity =
+    | Default
+    | Machine of string
+
+    type Entry = {
+        Machine : Identity
+        Login : string option
+        Password : string option
+        Account : string option
+        Macdef : string option
+    }
+    with 
+         static member Create x = {Machine = x; Login = None; Password = None; Account=None; Macdef = None}
+         static member Default = Entry.Create Default
+         static member ForMachine x = Entry.Create (x |> Machine)
+    
+
+
+    //no space https://stackoverflow.com/questions/12674888/can-netrc-handle-passphrases-with-spaces
+    let private split (s:string) = 
+        s.Split([|" ";"\r";"\n"|], StringSplitOptions.RemoveEmptyEntries) 
+        |> Array.map (fun x -> x.Trim())
+    
+    type Element = 
+    | Id of Identity
+    | Login of string
+    | Password of string
+    | Account of string
+    | Macdef of string
+
+    let private parse input = 
+        let rec parseInner output input =
+            match input with
+            | [] -> output |> List.rev
+            | input ->  let (x, y) =
+                            match input with
+                            | "machine"  :: v :: t -> t, Machine(v) |> Id 
+                            | "default"  :: t      -> t, Default |> Id
+                            | "login"    :: v :: t -> t, Login(v)
+                            | "password" :: v :: t -> t, Password(v)
+                            | "account"  :: v :: t -> t, Account(v)
+                            | "macdef"   :: v :: t -> t, Macdef(v)
+                            | _ -> failwith "invalid token"
+                        parseInner (y :: output) x
+        parseInner [] input
+    
+    let private isId = function | Id _ -> true  | _ -> false
+
+    let rec group (a:Element list) = seq {
+        match a with
+        | [] -> ()
+        | Id x :: tail 
+            -> yield (x, tail |> List.takeWhile (isId >> not))
+               yield! group (tail |> List.skipWhile (isId >> not))
+        | _ -> failwith "Expected identity" 
+    }
+    let buildState (x,z) =
+        z |> List.fold (
+            fun state x
+                -> match x with
+                   | Login x -> {state with Login = Some x}
+                   | Password x -> {state with Password = Some x}
+                   | Account x -> {state with Account = Some x}
+                   | Macdef x -> {state with Macdef = Some x}
+                   | _ -> failwith "No id here!"
+        ) (Entry.Create x)
+        
+
+    let parseString str = 
+        str
+        |> split 
+        |> Array.toList 
+        |> parse
+        |> group
+        |> Seq.map buildState
+        |> Seq.toList
+
+    let parseFile filename =
+        System.IO.File.ReadAllText(filename) |> parseString
+        
+        
+       
