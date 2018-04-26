@@ -115,6 +115,7 @@ module NetRc =
     | Macdef of string
 
     let private parse input = 
+        printfn "%A" input
         let rec parseInner output input =
             match input with
             | [] -> output |> List.rev
@@ -126,7 +127,7 @@ module NetRc =
                             | "password" :: v :: t -> t, Password(v)
                             | "account"  :: v :: t -> t, Account(v)
                             | "macdef"   :: v :: t -> t, Macdef(v)
-                            | _ -> failwith "invalid token"
+                            | x :: _ -> failwith (sprintf "invalid token '%s'" x)
                         parseInner (y :: output) x
         parseInner [] input
     
