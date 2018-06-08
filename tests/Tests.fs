@@ -15,6 +15,22 @@ module SortedSeqDiffTests =
         let result = [Both (1,1); Left(2); Right(3); Both(4,4); Right(5); Both(6,6); Left(8); Left(10); Right(11); Right(12)]
         test <@ seqDiff id left right |> Seq.toList = result @>
 
+
+    [<Fact>]
+    let ``Empty lists`` () =
+        let left = List.empty<int>
+        let right = List.empty<int>
+        let result = List.empty<SeqDiff<int>>
+        test <@ seqDiff id left right |> Seq.toList = result @>
+
+    [<Fact>]
+    let ``Different list lengths`` () =
+        let left = List.empty<int>
+        let right = [1;2;3]
+        let result = [Right(1);Right(2);Right(3);]
+        test <@ seqDiff id left right |> Seq.toList = result @>
+
+
     [<Fact>]
     let ``Can handle large sequences`` () =
         let s = System.Diagnostics.Stopwatch.StartNew()
