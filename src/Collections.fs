@@ -12,12 +12,12 @@ module SortedSeqDiff =
         | false -> None
 
     let private diff chooser = function
-    | (Some l, Some r) when chooser l < chooser r -> Some <| Left(l)
-    | (Some l, Some r) when chooser l > chooser r -> Some <| Right(r)
-    | (Some l, Some r)                            -> Some <| Both(l,r)
-    | (Some l, None)                              -> Some <| Left(l)
-    | (None, Some r)                              -> Some <| Right(r)
-    | (None, None)                                -> None
+    | (Some l, Some r) when chooser l < chooser r -> Left(l)
+    | (Some l, Some r) when chooser l > chooser r -> Right(r)
+    | (Some l, Some r)                            -> Both(l,r)
+    | (Some l, None)                              -> Left(l)
+    | (None, Some r)                              -> Right(r)
+    | (None, None)                                -> invalidOp "Both none"
 
     let seqDiff chooser (left : seq<_>) (right : seq<_>) = seq {
         use lft = left.GetEnumerator()
@@ -25,15 +25,13 @@ module SortedSeqDiff =
         let mutable workLeft = moveNext lft
         let mutable workRight = moveNext rgh
         while (Option.isNone workLeft && Option.isNone workRight) |> not do
-            match diff chooser (workLeft,workRight) with
-            | Some dir ->
-                match dir with
-                | Left _  -> workLeft  <- moveNext lft
-                | Right _ -> workRight <- moveNext rgh
-                | Both _  -> workLeft  <- moveNext lft
-                             workRight <- moveNext rgh
-                yield dir
-            | None -> invalidOp "Both none"
+            let dir = diff chooser (workLeft,workRight)
+            match dir with
+            | Left _  -> workLeft  <- moveNext lft
+            | Right _ -> workRight <- moveNext rgh
+            | Both _  -> workLeft  <- moveNext lft
+                         workRight <- moveNext rgh
+            yield dir
     }
 
 // let private tryHeadAndTail s = s |> Seq.tryHead |> Option.map (fun h -> h, s |> Seq.skip 1)
